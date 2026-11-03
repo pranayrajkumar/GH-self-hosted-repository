@@ -1,0 +1,42 @@
+name: Deploy Python App to Self-Hosted Runner
+
+on:
+  push:
+    branches:
+      - main  # Triggers deployment when code is pushed to main branch
+
+jobs:
+  deploy:
+    # Crucial: This targets your newly verified systemd self-hosted runner
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: |
+          echo "Building the new docker image..."
+          docker build -t python-selfhosted-app:latest .
+
+      - name: Stop and Remove Existing Container
+        run: |
+          echo "Cleaning up old containers if they exist..."
+          docker stop python-app-instance || true
+          docker rm python-app-instance || true
+
+      - name: Run New Container
+        run: |
+          echo "Launching the updated application container..."
+          docker run -d \
+            --name python-app-instance \
+            -p 8000:8000 \
+            --restart always \
+            python-selfhosted-app:latest
+
+      - name: Verify Deployment Health
+        run: |
+          echo "Waiting for app to start..."
+          sleep 3
+          curl --fail http://localhost:8000/health || exit 1
+          echo "Deployment successful!"
